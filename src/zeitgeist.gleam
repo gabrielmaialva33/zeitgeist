@@ -13,6 +13,8 @@ import zeitgeist/llm/types
 import zeitgeist/predict/feedback
 import zeitgeist/risk/cii_server
 import zeitgeist/signal/conflict_feed
+import zeitgeist/signal/market
+import zeitgeist/signal/military
 import zeitgeist/signal/rss
 import zeitgeist/signal/seismic
 import zeitgeist/signal/source
@@ -21,8 +23,8 @@ import zeitgeist/swarm/world_manager
 import zeitgeist/web/router
 
 pub fn main() {
-  io.println("  ⚡ Zeitgeist v0.4.0 (P3 — LLM Integration)")
-  io.println("  Real-time global intelligence platform — P3 LLM Integration")
+  io.println("  ⚡ Zeitgeist v1.0.0 (Full Spectrum)")
+  io.println("  Real-time global intelligence platform — Full Spectrum Intelligence")
   io.println("")
 
   let cfg = config.load()
@@ -108,6 +110,32 @@ pub fn main() {
       bus_subject,
     )
   io.println("  [signal] ACLED conflict source started")
+
+  // Market source (stub)
+  let assert Ok(_market) =
+    market.start(
+      source.MarketSource(
+        id: "market_stub",
+        url: "https://api.example.com/market/ticks",
+        poll_interval_ms: 30_000,
+      ),
+      bus_subject,
+    )
+  io.println("  [signal] market source started")
+
+  // Military source (stub)
+  let assert Ok(_military) =
+    military.start(
+      source.MilitarySource(
+        id: "military_stub",
+        url: "https://api.example.com/military/tracks",
+        poll_interval_ms: 60_000,
+      ),
+      bus_subject,
+    )
+  io.println("  [signal] military source started")
+
+  io.println("  [sources] 6 sources active")
 
   let ctx =
     router.AppContext(

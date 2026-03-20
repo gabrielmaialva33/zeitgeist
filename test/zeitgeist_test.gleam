@@ -9,14 +9,17 @@ import zeitgeist/core/bus
 import zeitgeist/core/entity
 import zeitgeist/core/event
 import zeitgeist/core/event_store
+import zeitgeist/graph/cluster
 import zeitgeist/graph/fact.{AtomicFact}
 import zeitgeist/graph/store
 import zeitgeist/llm/pool
 import zeitgeist/llm/types as llm_types
 import zeitgeist/predict/feedback
 import zeitgeist/predict/scenario
+import zeitgeist/risk/cascade
 import zeitgeist/risk/cii
 import zeitgeist/risk/cii_server
+import zeitgeist/risk/correlation
 import zeitgeist/swarm/registry
 import zeitgeist/swarm/world_manager
 
@@ -138,8 +141,7 @@ pub fn p1_event_store_integration_test() {
   let assert True = found_news
 
   // Verify by stream
-  let seismic_events =
-    event_store.by_stream(es, event.SeismicStream, 10)
+  let seismic_events = event_store.by_stream(es, event.SeismicStream, 10)
   list.length(seismic_events) |> should.equal(1)
 
   // Update CII, verify score > 0
@@ -243,7 +245,11 @@ pub fn p3_integration_test() {
   let assert Ok(llm_pool) = pool.start(llm_cfg)
 
   // 2. Mock LLM request via pool
-  let req = llm_types.new_request("predict the diplomatic outcome", llm_types.MockProvider)
+  let req =
+    llm_types.new_request(
+      "predict the diplomatic outcome",
+      llm_types.MockProvider,
+    )
   let assert Ok(resp) = pool.complete(llm_pool, req)
   should.be_true(resp.content != "")
   should.equal(resp.provider, "mock")
@@ -293,6 +299,126 @@ pub fn p3_integration_test() {
 
   feedback.stop(fb)
   pool.stop(llm_pool)
+}
+
+pub fn p4_full_spectrum_integration_test() {
+  // --- Cascade propagation ---
+  let graph =
+    cascade.new_graph()
+    |> cascade.add_node(cascade.InfraNode(
+      id: "cable_atlantic",
+      kind: cascade.SubmarineCableNode,
+      capacity: 1.0,
+      redundancy: 0.2,
+      dependents: [cascade.Dependency(target: "port_rotterdam", weight: 0.7, lag_hours: 2.0)],
+    ))
+    |> cascade.add_node(cascade.InfraNode(
+      id: "port_rotterdam",
+      kind: cascade.PortNode,
+      capacity: 1.0,
+      redundancy: 0.3,
+      dependents: [cascade.Dependency(target: "trade_route_eu", weight: 0.6, lag_hours: 4.0)],
+    ))
+    |> cascade.add_node(cascade.InfraNode(
+      id: "trade_route_eu",
+      kind: cascade.TradeRoute,
+      capacity: 1.0,
+      redundancy: 0.1,
+      dependents: [],
+    ))
+
+  let impacts = cascade.propagate(graph, "cable_atlantic", 0.9, 3)
+  // Should have at least 3 impacts (trigger + 2 propagations)
+  should.be_true(list.length(impacts) >= 3)
+
+  // Verify depth-1 impact exists and is < trigger disruption (attenuated)
+  let depth1 = cascade.impact_at_depth(impacts, 1)
+  should.be_true(list.length(depth1) >= 1)
+  let assert [first_d1, ..] = depth1
+  should.be_true(first_d1.impact <. 0.9)
+
+  // --- Emerging clusters ---
+  let now = 1_774_100_000_000
+  let window = 3_600_000
+  let facts = [
+    AtomicFact(
+      id: "f1",
+      subject: "iran",
+      predicate: entity.Hostile,
+      object: "usa",
+      observed_at: now - 100_000,
+      valid_from: now - 100_000,
+      valid_until: None,
+      confidence: 0.9,
+      source_credibility: 0.9,
+      frequency: 1,
+    ),
+    AtomicFact(
+      id: "f2",
+      subject: "iran",
+      predicate: entity.Allied,
+      object: "russia",
+      observed_at: now - 200_000,
+      valid_from: now - 200_000,
+      valid_until: None,
+      confidence: 0.8,
+      source_credibility: 0.85,
+      frequency: 1,
+    ),
+    AtomicFact(
+      id: "f3",
+      subject: "iran",
+      predicate: entity.Controls,
+      object: "strait_of_hormuz",
+      observed_at: now - 300_000,
+      valid_from: now - 300_000,
+      valid_until: None,
+      confidence: 0.85,
+      source_credibility: 0.9,
+      frequency: 1,
+    ),
+    AtomicFact(
+      id: "f4",
+      subject: "usa",
+      predicate: entity.MemberOf,
+      object: "nato",
+      observed_at: now - 50_000,
+      valid_from: now - 50_000,
+      valid_until: None,
+      confidence: 0.95,
+      source_credibility: 0.95,
+      frequency: 1,
+    ),
+  ]
+
+  let clusters = cluster.detect(facts, now, window, 2)
+  // Iran has 3 facts in window, should appear as emerging cluster
+  let iran_cluster =
+    list.filter(clusters, fn(c: cluster.EmergingCluster) {
+      c.entity_id == "iran"
+    })
+  should.be_true(list.length(iran_cluster) >= 1)
+  let assert [ic, ..] = iran_cluster
+  should.be_true(ic.new_relations >= 3)
+  should.be_true(ic.avg_confidence >. 0.0)
+
+  // --- Correlation patterns ---
+  // 1. Cascade trigger: high disruption + market drop
+  let cascade_hit =
+    correlation.check_cascade_trigger(0.85, -3.2, 0.5)
+  should.equal(cascade_hit, True)
+
+  // 2. Entity frequency spike: Iran mentions tripled
+  let freq_spike =
+    correlation.check_entity_frequency_spike(90, 20, 3.0)
+  should.equal(freq_spike, True)
+
+  // 3. Multi-region convergence: 5 regions affected
+  let convergence = correlation.check_multi_region_convergence(5, 3)
+  should.equal(convergence, True)
+
+  // All assertions pass → full spectrum integration verified
+  Nil
 }
 
 @external(erlang, "erlang", "unique_integer")

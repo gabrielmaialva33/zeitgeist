@@ -4,8 +4,10 @@ import gleam/list
 import zeitgeist/agent/types
 import zeitgeist/core/entity.{type Entity}
 import zeitgeist/core/event.{type Event}
+import zeitgeist/graph/cluster.{type EmergingCluster}
 import zeitgeist/graph/fact.{type AtomicFact}
 import zeitgeist/predict/scenario.{type Scenario}
+import zeitgeist/risk/cascade.{type CascadeImpact}
 import zeitgeist/risk/cii.{type CountryRisk}
 import zeitgeist/swarm/world.{type World}
 
@@ -13,7 +15,7 @@ pub fn health(status: String) -> Json {
   json.object([
     #("status", json.string(status)),
     #("service", json.string("zeitgeist")),
-    #("version", json.string("0.4.0 (P3 — LLM Integration)")),
+    #("version", json.string("1.0.0 (Full Spectrum)")),
   ])
 }
 
@@ -198,15 +200,16 @@ pub fn event_kind_summary(kind: event.EventKind) -> String {
     event.MarketTick(symbol, _, _) -> "market:" <> symbol
     event.MilitaryTrack(_, callsign, _) -> "military:" <> callsign
     event.InfraStatus(infra_type, status) ->
-      "infra:" <> infra_type_to_string(infra_type) <> ":" <> infra_status_to_string(status)
-    event.SeismicReading(magnitude, _) ->
-      "seismic:M" <> float_to_str(magnitude)
+      "infra:"
+      <> infra_type_to_string(infra_type)
+      <> ":"
+      <> infra_status_to_string(status)
+    event.SeismicReading(magnitude, _) -> "seismic:M" <> float_to_str(magnitude)
     event.WeatherAlert(severity, phenomenon) ->
       "weather:" <> alert_severity_to_string(severity) <> ":" <> phenomenon
     event.RiskAlert(risk_type, _, _) ->
       "risk:" <> risk_type_to_string(risk_type)
-    event.PredictionEvent(scenario_id, _, _) ->
-      "prediction:" <> scenario_id
+    event.PredictionEvent(scenario_id, _, _) -> "prediction:" <> scenario_id
     event.CorrelationHit(_, pattern) -> "correlation:" <> pattern
   }
 }
@@ -308,6 +311,37 @@ fn world_state_str(state: types.WorldState) -> String {
 
 fn float_to_str(f: Float) -> String {
   int.to_string(erlang_trunc(f))
+}
+
+pub fn cascade_impact_json(impact: CascadeImpact) -> Json {
+  json.object([
+    #("node_id", json.string(impact.node_id)),
+    #("impact", json.float(impact.impact)),
+    #("depth", json.int(impact.depth)),
+    #("lag_hours", json.float(impact.lag_hours)),
+  ])
+}
+
+pub fn cascade_impact_list(impacts: List(CascadeImpact)) -> Json {
+  json.object([
+    #("impacts", json.array(impacts, cascade_impact_json)),
+    #("count", json.int(list.length(impacts))),
+  ])
+}
+
+pub fn emerging_cluster_json(cluster: EmergingCluster) -> Json {
+  json.object([
+    #("entity_id", json.string(cluster.entity_id)),
+    #("new_relations", json.int(cluster.new_relations)),
+    #("avg_confidence", json.float(cluster.avg_confidence)),
+  ])
+}
+
+pub fn emerging_cluster_list(clusters: List(EmergingCluster)) -> Json {
+  json.object([
+    #("clusters", json.array(clusters, emerging_cluster_json)),
+    #("count", json.int(list.length(clusters))),
+  ])
 }
 
 @external(erlang, "erlang", "trunc")
