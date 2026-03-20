@@ -15,6 +15,7 @@ pub type GraphMsg {
   FactCount(reply_to: Subject(Int))
   ListEntities(reply_to: Subject(List(Entity)))
   GetFactsByEntity(entity_id: String, reply_to: Subject(List(AtomicFact)))
+  RunDecay(max_age_hours: Int)
   Stop
 }
 
@@ -149,9 +150,24 @@ fn handle_message(
       process.send(reply_to, facts)
       actor.continue(state)
     }
+    RunDecay(max_age_hours) -> {
+      let cutoff = now_ms() - max_age_hours * 3_600_000
+      ets.lookup_all(state.facts)
+      |> list.map(fn(dyn) -> AtomicFact { coerce(dyn) })
+      |> list.each(fn(f) {
+        case f.observed_at < cutoff {
+          True -> ets.delete_key(state.facts, f.id)
+          False -> Nil
+        }
+      })
+      actor.continue(state)
+    }
     Stop -> actor.stop()
   }
 }
 
 @external(erlang, "zeitgeist_ets_ffi", "identity")
 fn coerce(value: a) -> b
+
+@external(erlang, "zeitgeist_ets_ffi", "now_ms")
+fn now_ms() -> Int
