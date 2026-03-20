@@ -1,16 +1,18 @@
 import gleam/int
 import gleam/json.{type Json}
 import gleam/list
+import zeitgeist/agent/types
 import zeitgeist/core/entity.{type Entity}
 import zeitgeist/core/event.{type Event}
 import zeitgeist/graph/fact.{type AtomicFact}
 import zeitgeist/risk/cii.{type CountryRisk}
+import zeitgeist/swarm/world.{type World}
 
 pub fn health(status: String) -> Json {
   json.object([
     #("status", json.string(status)),
     #("service", json.string("zeitgeist")),
-    #("version", json.string("0.2.0 (P1)")),
+    #("version", json.string("0.3.0 (P2 — Simulation)")),
   ])
 }
 
@@ -200,6 +202,33 @@ fn risk_type_to_string(r: event.RiskType) -> String {
     event.Convergence -> "convergence"
     event.Cascade -> "cascade"
     event.AnomalyDetected -> "anomaly_detected"
+  }
+}
+
+pub fn world_json(w: World) -> Json {
+  json.object([
+    #("id", json.string(w.id)),
+    #("name", json.string(w.name)),
+    #("tick", json.int(w.tick)),
+    #("max_ticks", json.int(w.max_ticks)),
+    #("agent_count", json.int(list.length(w.agent_ids))),
+    #("state", json.string(world_state_str(w.state))),
+    #("world_tension", json.float(w.world_tension)),
+  ])
+}
+
+pub fn world_list(worlds: List(World)) -> Json {
+  json.object([
+    #("worlds", json.array(worlds, world_json)),
+    #("count", json.int(list.length(worlds))),
+  ])
+}
+
+fn world_state_str(state: types.WorldState) -> String {
+  case state {
+    types.Running -> "running"
+    types.Paused -> "paused"
+    types.Completed -> "completed"
   }
 }
 

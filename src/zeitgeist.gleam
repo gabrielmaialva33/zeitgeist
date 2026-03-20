@@ -13,10 +13,12 @@ import zeitgeist/signal/conflict_feed
 import zeitgeist/signal/rss
 import zeitgeist/signal/seismic
 import zeitgeist/signal/source
+import zeitgeist/swarm/registry
+import zeitgeist/swarm/world_manager
 import zeitgeist/web/router
 
 pub fn main() {
-  io.println("  ⚡ Zeitgeist v0.2.0 (P1)")
+  io.println("  ⚡ Zeitgeist v0.3.0 (P2 — Simulation)")
   io.println("  Real-time global intelligence platform")
   io.println("")
 
@@ -34,6 +36,12 @@ pub fn main() {
 
   let assert Ok(cii_subject) = cii_server.start(bus_subject)
   io.println("  [cii] CII server started")
+
+  let assert Ok(registry_subject) = registry.start("zeitgeist")
+  io.println("  [registry] agent registry started")
+
+  let assert Ok(world_manager_subject) = world_manager.start(registry_subject)
+  io.println("  [world_manager] world manager started")
 
   // Subscribe event store to bus (all streams)
   subscribe_store_to_bus(bus_subject, event_store_subject)
@@ -91,6 +99,7 @@ pub fn main() {
       event_store: event_store_subject,
       graph: graph_subject,
       cii: cii_subject,
+      world_manager: world_manager_subject,
     )
 
   let assert Ok(_) =

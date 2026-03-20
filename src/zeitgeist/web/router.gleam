@@ -7,6 +7,7 @@ import mist.{type Connection}
 import zeitgeist/core/event_store
 import zeitgeist/graph/store
 import zeitgeist/risk/cii_server
+import zeitgeist/swarm/world_manager
 import zeitgeist/web/json_encode
 
 pub type AppContext {
@@ -14,6 +15,7 @@ pub type AppContext {
     event_store: Subject(event_store.StoreMsg),
     graph: Subject(store.GraphMsg),
     cii: Subject(cii_server.CiiMsg),
+    world_manager: Subject(world_manager.ManagerMsg),
   )
 }
 
@@ -32,6 +34,8 @@ fn handle_request(
     ["api", "events"] -> events_response(ctx)
     ["api", "risk", "cii", country_code] -> cii_response(ctx, country_code)
     ["api", "graph", "entity", entity_id] -> entity_response(ctx, entity_id)
+    ["api", "worlds"] -> worlds_response(ctx)
+    ["api", "worlds", world_id] -> world_response(ctx, world_id)
     _ -> not_found_response()
   }
 }
@@ -64,6 +68,26 @@ fn entity_response(ctx: AppContext, entity_id: String) -> Response(mist.Response
     Ok(ent) -> {
       let facts = store.get_facts_by_entity(ctx.graph, entity_id)
       let body = json_encode.entity_with_facts(ent, facts) |> json.to_string
+      response.new(200)
+      |> response.set_header("content-type", "application/json")
+      |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+    }
+    Error(_) -> not_found_response()
+  }
+}
+
+fn worlds_response(ctx: AppContext) -> Response(mist.ResponseData) {
+  let worlds = world_manager.list_worlds(ctx.world_manager)
+  let body = json_encode.world_list(worlds) |> json.to_string
+  response.new(200)
+  |> response.set_header("content-type", "application/json")
+  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
+}
+
+fn world_response(ctx: AppContext, world_id: String) -> Response(mist.ResponseData) {
+  case world_manager.get_world(ctx.world_manager, world_id) {
+    Ok(w) -> {
+      let body = json_encode.world_json(w) |> json.to_string
       response.new(200)
       |> response.set_header("content-type", "application/json")
       |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))

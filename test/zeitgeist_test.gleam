@@ -10,6 +10,7 @@ import zeitgeist/core/event
 import zeitgeist/core/event_store
 import zeitgeist/graph/fact.{AtomicFact}
 import zeitgeist/graph/store
+import zeitgeist/predict/scenario
 import zeitgeist/risk/cii
 import zeitgeist/risk/cii_server
 
@@ -154,6 +155,21 @@ fn list_any(lst: List(a), pred: fn(a) -> Bool) -> Bool {
         False -> list_any(tail, pred)
       }
   }
+}
+
+pub fn p2_prediction_test() {
+  let s =
+    scenario.new(
+      "s1",
+      "w1",
+      scenario.ConflictEscalation(region: "ME", from_level: 2, to_level: 4),
+      0.7,
+      48,
+    )
+  s.status |> should.equal(scenario.Active)
+  let expired =
+    scenario.check_expiry(scenario.Scenario(..s, created_at: 0), 200_000_000)
+  expired.status |> should.equal(scenario.Expired)
 }
 
 @external(erlang, "erlang", "unique_integer")
