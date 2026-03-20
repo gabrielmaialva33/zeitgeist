@@ -120,3 +120,39 @@ pub fn military_surge_detected_test() {
 pub fn military_surge_not_detected_test() {
   correlation.check_military_surge(2.0, 3.0) |> should.equal(False)
 }
+
+pub fn prediction_leads_news_detected_test() {
+  // prediction at 0ms, news at 1_800_000ms → lag = 30 min, within 15-60 min
+  correlation.check_prediction_leads_news(0, 1_800_000, 15, 60)
+  |> should.equal(True)
+}
+
+pub fn prediction_leads_news_too_late_test() {
+  // prediction at 0ms, news at 5_000_000ms → lag = ~83 min, exceeds 60 min max
+  correlation.check_prediction_leads_news(0, 5_000_000, 15, 60)
+  |> should.equal(False)
+}
+
+pub fn prediction_leads_news_too_early_test() {
+  // prediction at 0ms, news at 300_000ms → lag = 5 min, below 15 min min
+  correlation.check_prediction_leads_news(0, 300_000, 15, 60)
+  |> should.equal(False)
+}
+
+pub fn silent_divergence_detected_test() {
+  // CII spiked from 20 to 35 (delta=15 >= threshold=10), market barely moved (0.5%)
+  correlation.check_silent_divergence(35.0, 20.0, 0.5, 10.0)
+  |> should.equal(True)
+}
+
+pub fn silent_divergence_not_detected_market_moved_test() {
+  // CII spiked but market also moved significantly (3.5%)
+  correlation.check_silent_divergence(35.0, 20.0, 3.5, 10.0)
+  |> should.equal(False)
+}
+
+pub fn silent_divergence_not_detected_small_spike_test() {
+  // CII delta only 5 (below threshold 10), market barely moved
+  correlation.check_silent_divergence(25.0, 20.0, 0.5, 10.0)
+  |> should.equal(False)
+}
