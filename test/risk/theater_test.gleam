@@ -81,15 +81,15 @@ pub fn not_strike_capable_too_few_fighters_test() {
 pub fn all_nine_theaters_exist_test() {
   let ids = theater.all_theater_ids()
   list.length(ids) |> should.equal(9)
-  let assert True = list.contains(ids, "iran_gulf")
-  let assert True = list.contains(ids, "taiwan_strait")
-  let assert True = list.contains(ids, "baltic")
-  let assert True = list.contains(ids, "black_sea")
-  let assert True = list.contains(ids, "korea")
-  let assert True = list.contains(ids, "south_china_sea")
-  let assert True = list.contains(ids, "east_med")
-  let assert True = list.contains(ids, "israel_gaza")
-  let assert True = list.contains(ids, "yemen_red_sea")
+  list.contains(ids, "iran_gulf") |> should.equal(True)
+  list.contains(ids, "taiwan_strait") |> should.equal(True)
+  list.contains(ids, "baltic") |> should.equal(True)
+  list.contains(ids, "black_sea") |> should.equal(True)
+  list.contains(ids, "korea") |> should.equal(True)
+  list.contains(ids, "south_china_sea") |> should.equal(True)
+  list.contains(ids, "east_med") |> should.equal(True)
+  list.contains(ids, "israel_gaza") |> should.equal(True)
+  list.contains(ids, "yemen_red_sea") |> should.equal(True)
 }
 
 pub fn record_asset_appends_test() {
