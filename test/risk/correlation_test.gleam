@@ -100,3 +100,23 @@ pub fn triangulation_not_detected_test() {
   let events = [news1, news2]
   correlation.check_triangulation(events, "iran", 3) |> should.equal(False)
 }
+
+pub fn news_leads_market_detected_test() {
+  // news at 1000ms, market at 2_400_000ms → lag = 2_399_000ms ≈ 39.98 min, within 15-60 min
+  correlation.check_news_leads_market(1000, 2_400_000, 15, 60)
+  |> should.equal(True)
+}
+
+pub fn news_leads_market_too_fast_test() {
+  // news at 1000ms, market at 301_000ms → lag = 300_000ms = 5 min, below 15 min min
+  correlation.check_news_leads_market(1000, 301_000, 15, 60)
+  |> should.equal(False)
+}
+
+pub fn military_surge_detected_test() {
+  correlation.check_military_surge(3.5, 3.0) |> should.equal(True)
+}
+
+pub fn military_surge_not_detected_test() {
+  correlation.check_military_surge(2.0, 3.0) |> should.equal(False)
+}
