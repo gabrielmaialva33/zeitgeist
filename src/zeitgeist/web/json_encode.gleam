@@ -15,7 +15,7 @@ pub fn health(status: String) -> Json {
   json.object([
     #("status", json.string(status)),
     #("service", json.string("zeitgeist")),
-    #("version", json.string("1.0.0 (Full Spectrum)")),
+    #("version", json.string("2.0.0 (Best of Both Worlds)")),
   ])
 }
 

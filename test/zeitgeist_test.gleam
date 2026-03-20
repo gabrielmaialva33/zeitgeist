@@ -16,10 +16,15 @@ import zeitgeist/llm/pool
 import zeitgeist/llm/types as llm_types
 import zeitgeist/predict/feedback
 import zeitgeist/predict/scenario
+import zeitgeist/risk/alert_fusion
 import zeitgeist/risk/cascade
 import zeitgeist/risk/cii
 import zeitgeist/risk/cii_server
 import zeitgeist/risk/correlation
+import zeitgeist/risk/keyword_spike
+import zeitgeist/risk/theater
+import zeitgeist/agent/action
+import zeitgeist/swarm/kg_feedback
 import zeitgeist/swarm/registry
 import zeitgeist/swarm/world_manager
 
@@ -418,6 +423,67 @@ pub fn p4_full_spectrum_integration_test() {
   should.equal(convergence, True)
 
   // All assertions pass → full spectrum integration verified
+  Nil
+}
+
+pub fn p5_integration_test() {
+  // --- Theater posture: iran_gulf + 12 activity = Elevated ---
+  let t = theater.new("iran_gulf") |> theater.add_activity(12)
+  t.posture |> should.equal(theater.Elevated)
+  let assert True = t.activity_count == 12
+
+  // --- Alert fusion convergence score ---
+  let sig_a =
+    alert_fusion.new_signal(
+      "sig_001",
+      "military",
+      "IR",
+      None,
+      0.85,
+      1_000_000_000,
+    )
+  let sig_b =
+    alert_fusion.new_signal(
+      "sig_002",
+      "intelligence",
+      "IR",
+      None,
+      0.9,
+      1_000_100_000,
+    )
+
+  let result = alert_fusion.try_merge(sig_a, sig_b, 500.0, 3_600_000)
+  result |> should.be_ok
+  let assert Ok(fused) = result
+  let assert True = fused.convergence_score >. 0.0
+
+  // --- Keyword extraction ---
+  let keywords =
+    keyword_spike.extract_keywords("missile strike hit the port forces conflict")
+  list.contains(keywords, "missile") |> should.equal(True)
+  list.contains(keywords, "strike") |> should.equal(True)
+  list.contains(keywords, "conflict") |> should.equal(True)
+  // stop word "the" filtered
+  list.contains(keywords, "the") |> should.equal(False)
+
+  // --- KG feedback: action_to_fact ---
+  let fact_result =
+    kg_feedback.action_to_fact(
+      "agent_ir_001",
+      "world_test",
+      action.DiplomaticMessage(
+        to: "agent_us_001",
+        content: "We seek dialogue",
+        public: True,
+      ),
+      1_000_000_000,
+    )
+  fact_result |> should.be_ok
+  let assert Ok(fact) = fact_result
+  fact.subject |> should.equal("agent_ir_001")
+  fact.predicate |> should.equal(entity.Allied)
+  fact.object |> should.equal("agent_us_001")
+
   Nil
 }
 

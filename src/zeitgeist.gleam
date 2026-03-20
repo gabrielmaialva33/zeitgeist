@@ -21,9 +21,10 @@ import zeitgeist/signal/source
 import zeitgeist/swarm/registry
 import zeitgeist/swarm/world_manager
 import zeitgeist/web/router
+import zeitgeist/web/ws
 
 pub fn main() {
-  io.println("  ⚡ Zeitgeist v1.0.0 (Full Spectrum)")
+  io.println("  ⚡ Zeitgeist v2.0.0 (Best of Both Worlds)")
   io.println("  Real-time global intelligence platform — Full Spectrum Intelligence")
   io.println("")
 
@@ -56,6 +57,9 @@ pub fn main() {
     )
   let assert Ok(llm_pool_subject) = pool.start(llm_cfg)
   io.println("  [llm_pool] LLM pool started (mock provider)")
+
+  let assert Ok(_ws_subject) = ws.start()
+  io.println("  [ws] WebSocket manager started")
 
   let assert Ok(feedback_subject) = feedback.start()
   io.println("  [feedback] prediction feedback server started")
