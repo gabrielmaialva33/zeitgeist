@@ -2,6 +2,8 @@ pub type SourceConfig {
   RssFeed(id: String, url: String, poll_interval_ms: Int)
   SeismicSource(id: String, url: String, poll_interval_ms: Int)
   ConflictSource(id: String, url: String, poll_interval_ms: Int)
+  MarketSource(id: String, url: String, poll_interval_ms: Int)
+  MilitarySource(id: String, url: String, poll_interval_ms: Int)
 }
 
 pub type SourceHealth {

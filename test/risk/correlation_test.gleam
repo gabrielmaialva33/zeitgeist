@@ -156,3 +156,87 @@ pub fn silent_divergence_not_detected_small_spike_test() {
   correlation.check_silent_divergence(25.0, 20.0, 0.5, 10.0)
   |> should.equal(False)
 }
+
+pub fn cascade_trigger_detected_test() {
+  // disruption 0.8 > threshold 0.5, market dropped 2.5% (abs > 1.0)
+  correlation.check_cascade_trigger(0.8, -2.5, 0.5) |> should.equal(True)
+}
+
+pub fn cascade_trigger_not_detected_test() {
+  // disruption 0.3 <= threshold 0.5, even if market moved
+  correlation.check_cascade_trigger(0.3, 3.0, 0.5) |> should.equal(False)
+}
+
+pub fn market_leads_news_detected_test() {
+  // market at 0ms, news at 1_800_000ms → lag = 30 min, within 15-60 min
+  correlation.check_market_leads_news(0, 1_800_000, 15, 60)
+  |> should.equal(True)
+}
+
+pub fn market_leads_news_not_detected_test() {
+  // market at 0ms, news at 300_000ms → lag = 5 min, below 15 min
+  correlation.check_market_leads_news(0, 300_000, 15, 60)
+  |> should.equal(False)
+}
+
+pub fn diplomatic_surge_detected_test() {
+  // 150 messages, baseline 50, multiplier 2.0 → 150 >= 100
+  correlation.check_diplomatic_surge(150, 50, 2.0) |> should.equal(True)
+}
+
+pub fn diplomatic_surge_not_detected_test() {
+  // 80 messages, baseline 50, multiplier 2.0 → 80 < 100
+  correlation.check_diplomatic_surge(80, 50, 2.0) |> should.equal(False)
+}
+
+pub fn multi_region_convergence_detected_test() {
+  // 4 regions, need at least 3
+  correlation.check_multi_region_convergence(4, 3) |> should.equal(True)
+}
+
+pub fn multi_region_convergence_not_detected_test() {
+  // 2 regions, need at least 3
+  correlation.check_multi_region_convergence(2, 3) |> should.equal(False)
+}
+
+pub fn sentiment_momentum_detected_test() {
+  // prev_delta 0.1, curr_delta 0.5 → acceleration 0.4 > threshold 0.3
+  correlation.check_sentiment_momentum(0.1, 0.5, 0.3) |> should.equal(True)
+}
+
+pub fn sentiment_momentum_not_detected_test() {
+  // prev_delta 0.4, curr_delta 0.5 → acceleration 0.1 <= threshold 0.3
+  correlation.check_sentiment_momentum(0.4, 0.5, 0.3) |> should.equal(False)
+}
+
+pub fn supply_chain_disruption_detected_test() {
+  // all conditions met: infra disrupted, trade affected, drop 5.0 > threshold 3.0
+  correlation.check_supply_chain_disruption(True, True, 5.0, 3.0)
+  |> should.equal(True)
+}
+
+pub fn supply_chain_disruption_not_detected_test() {
+  // trade not affected
+  correlation.check_supply_chain_disruption(True, False, 5.0, 3.0)
+  |> should.equal(False)
+}
+
+pub fn theater_escalation_detected_test() {
+  // 12 activities, baseline 5 → 12 >= 10
+  correlation.check_theater_escalation(12, 5, "pacific") |> should.equal(True)
+}
+
+pub fn theater_escalation_not_detected_test() {
+  // 8 activities, baseline 5 → 8 < 10
+  correlation.check_theater_escalation(8, 5, "pacific") |> should.equal(False)
+}
+
+pub fn entity_frequency_spike_detected_test() {
+  // 30 mentions, baseline 10, multiplier 2.5 → 30 >= 25
+  correlation.check_entity_frequency_spike(30, 10, 2.5) |> should.equal(True)
+}
+
+pub fn entity_frequency_spike_not_detected_test() {
+  // 20 mentions, baseline 10, multiplier 2.5 → 20 < 25
+  correlation.check_entity_frequency_spike(20, 10, 2.5) |> should.equal(False)
+}
