@@ -67,9 +67,6 @@ type AgentState {
 // FFI
 // ---------------------------------------------------------------------------
 
-@external(erlang, "erlang", "float_to_binary")
-fn float_to_str(f: Float) -> String
-
 @external(erlang, "erlang", "float")
 fn int_to_float(n: Int) -> Float
 
