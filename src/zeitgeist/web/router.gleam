@@ -6,6 +6,8 @@ import gleam/json
 import mist.{type Connection}
 import zeitgeist/core/event_store
 import zeitgeist/graph/store
+import zeitgeist/llm/pool
+import zeitgeist/predict/feedback
 import zeitgeist/risk/cii_server
 import zeitgeist/swarm/world_manager
 import zeitgeist/web/json_encode
@@ -16,6 +18,8 @@ pub type AppContext {
     graph: Subject(store.GraphMsg),
     cii: Subject(cii_server.CiiMsg),
     world_manager: Subject(world_manager.ManagerMsg),
+    feedback: Subject(feedback.FeedbackMsg),
+    llm_pool: Subject(pool.PoolMsg),
   )
 }
 
@@ -36,6 +40,7 @@ fn handle_request(
     ["api", "graph", "entity", entity_id] -> entity_response(ctx, entity_id)
     ["api", "worlds"] -> worlds_response(ctx)
     ["api", "worlds", world_id] -> world_response(ctx, world_id)
+    ["api", "predictions"] -> predictions_response(ctx)
     _ -> not_found_response()
   }
 }
@@ -94,6 +99,14 @@ fn world_response(ctx: AppContext, world_id: String) -> Response(mist.ResponseDa
     }
     Error(_) -> not_found_response()
   }
+}
+
+fn predictions_response(ctx: AppContext) -> Response(mist.ResponseData) {
+  let active = feedback.list_active(ctx.feedback)
+  let body = json_encode.scenario_list(active) |> json.to_string
+  response.new(200)
+  |> response.set_header("content-type", "application/json")
+  |> response.set_body(mist.Bytes(bytes_tree.from_string(body)))
 }
 
 fn not_found_response() -> Response(mist.ResponseData) {

@@ -8,6 +8,9 @@ import zeitgeist/core/config
 import zeitgeist/core/event
 import zeitgeist/core/event_store
 import zeitgeist/graph/store
+import zeitgeist/llm/pool
+import zeitgeist/llm/types
+import zeitgeist/predict/feedback
 import zeitgeist/risk/cii_server
 import zeitgeist/signal/conflict_feed
 import zeitgeist/signal/rss
@@ -18,8 +21,8 @@ import zeitgeist/swarm/world_manager
 import zeitgeist/web/router
 
 pub fn main() {
-  io.println("  ⚡ Zeitgeist v0.3.0 (P2 — Simulation)")
-  io.println("  Real-time global intelligence platform")
+  io.println("  ⚡ Zeitgeist v0.4.0 (P3 — LLM Integration)")
+  io.println("  Real-time global intelligence platform — P3 LLM Integration")
   io.println("")
 
   let cfg = config.load()
@@ -42,6 +45,18 @@ pub fn main() {
 
   let assert Ok(world_manager_subject) = world_manager.start(registry_subject)
   io.println("  [world_manager] world manager started")
+
+  let llm_cfg =
+    pool.PoolConfig(
+      default_provider: types.MockProvider,
+      fallback_provider: types.MockProvider,
+      max_concurrent: 4,
+    )
+  let assert Ok(llm_pool_subject) = pool.start(llm_cfg)
+  io.println("  [llm_pool] LLM pool started (mock provider)")
+
+  let assert Ok(feedback_subject) = feedback.start()
+  io.println("  [feedback] prediction feedback server started")
 
   // Subscribe event store to bus (all streams)
   subscribe_store_to_bus(bus_subject, event_store_subject)
@@ -100,6 +115,8 @@ pub fn main() {
       graph: graph_subject,
       cii: cii_subject,
       world_manager: world_manager_subject,
+      feedback: feedback_subject,
+      llm_pool: llm_pool_subject,
     )
 
   let assert Ok(_) =

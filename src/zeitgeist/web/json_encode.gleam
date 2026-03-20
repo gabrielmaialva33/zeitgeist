@@ -5,6 +5,7 @@ import zeitgeist/agent/types
 import zeitgeist/core/entity.{type Entity}
 import zeitgeist/core/event.{type Event}
 import zeitgeist/graph/fact.{type AtomicFact}
+import zeitgeist/predict/scenario.{type Scenario}
 import zeitgeist/risk/cii.{type CountryRisk}
 import zeitgeist/swarm/world.{type World}
 
@@ -12,8 +13,81 @@ pub fn health(status: String) -> Json {
   json.object([
     #("status", json.string(status)),
     #("service", json.string("zeitgeist")),
-    #("version", json.string("0.3.0 (P2 — Simulation)")),
+    #("version", json.string("0.4.0 (P3 — LLM Integration)")),
   ])
+}
+
+pub fn scenario_json(s: Scenario) -> Json {
+  json.object([
+    #("id", json.string(s.id)),
+    #("world_id", json.string(s.world_id)),
+    #("confidence", json.float(s.confidence)),
+    #("horizon_hours", json.int(s.horizon_hours)),
+    #("status", json.string(scenario_status_to_string(s.status))),
+    #("prediction", prediction_claim_json(s.prediction)),
+  ])
+}
+
+pub fn scenario_list(scenarios: List(Scenario)) -> Json {
+  json.object([
+    #("predictions", json.array(scenarios, scenario_json)),
+    #("count", json.int(list.length(scenarios))),
+  ])
+}
+
+fn scenario_status_to_string(status: scenario.ScenarioStatus) -> String {
+  case status {
+    scenario.Active -> "active"
+    scenario.ScenarioConfirmed(_, _) -> "confirmed"
+    scenario.ScenarioInvalidated(_) -> "invalidated"
+    scenario.Expired -> "expired"
+  }
+}
+
+fn prediction_claim_json(claim: scenario.PredictionClaim) -> Json {
+  case claim {
+    scenario.ConflictEscalation(region, from_level, to_level) ->
+      json.object([
+        #("type", json.string("conflict_escalation")),
+        #("region", json.string(region)),
+        #("from_level", json.int(from_level)),
+        #("to_level", json.int(to_level)),
+      ])
+    scenario.MarketMove(symbol, direction, magnitude_pct) ->
+      json.object([
+        #("type", json.string("market_move")),
+        #("symbol", json.string(symbol)),
+        #("direction", json.string(direction_to_string(direction))),
+        #("magnitude_pct", json.float(magnitude_pct)),
+      ])
+    scenario.InfraDisruption(infra_id, severity) ->
+      json.object([
+        #("type", json.string("infra_disruption")),
+        #("infra_id", json.string(infra_id)),
+        #("severity", json.float(severity)),
+      ])
+    scenario.NarrativeShift(topic, from_sentiment, to_sentiment) ->
+      json.object([
+        #("type", json.string("narrative_shift")),
+        #("topic", json.string(topic)),
+        #("from_sentiment", json.float(from_sentiment)),
+        #("to_sentiment", json.float(to_sentiment)),
+      ])
+    scenario.PredictedDiplomaticAction(actor_name, action_type, target) ->
+      json.object([
+        #("type", json.string("diplomatic_action")),
+        #("actor_name", json.string(actor_name)),
+        #("action_type", json.string(action_type)),
+        #("target", json.string(target)),
+      ])
+  }
+}
+
+fn direction_to_string(d: scenario.Direction) -> String {
+  case d {
+    scenario.Up -> "up"
+    scenario.Down -> "down"
+  }
 }
 
 pub fn country_risk(risk: CountryRisk) -> Json {
