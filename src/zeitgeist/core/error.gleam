@@ -1,0 +1,16 @@
+pub type ZeitgeistError {
+  SourceUnavailable(source_id: String, reason: String)
+  ParseError(source_id: String, raw: String, reason: String)
+  SourceRateLimited(source_id: String, retry_after_ms: Int)
+  EntityNotFound(entity_id: String)
+  FactConflict(existing_id: String, incoming_id: String)
+  SnapshotFailed(path: String, reason: String)
+  LlmTimeout(provider: String, timeout_ms: Int)
+  LlmRateLimited(provider: String, retry_after_ms: Int)
+  LlmResponseInvalid(provider: String, raw: String)
+  WorldNotFound(world_id: String)
+  AgentNotFound(world_id: String, agent_id: String)
+  SimulationFailed(world_id: String, reason: String)
+  PredictionExpired(scenario_id: String)
+  ValidationDataInsufficient(scenario_id: String, reason: String)
+}
