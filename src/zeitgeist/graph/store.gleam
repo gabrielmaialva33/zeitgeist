@@ -1,4 +1,5 @@
 import gleam/erlang/process.{type Subject}
+import gleam/list
 import gleam/otp/actor
 import zeitgeist/core/entity.{type Entity}
 import zeitgeist/core/ets
@@ -12,6 +13,8 @@ pub type GraphMsg {
   GetFact(id: String, reply_to: Subject(Result(AtomicFact, Nil)))
   EntityCount(reply_to: Subject(Int))
   FactCount(reply_to: Subject(Int))
+  ListEntities(reply_to: Subject(List(Entity)))
+  GetFactsByEntity(entity_id: String, reply_to: Subject(List(AtomicFact)))
   Stop
 }
 
@@ -76,6 +79,21 @@ pub fn fact_count(graph: Subject(GraphMsg)) -> Int {
   })
 }
 
+pub fn list_entities(graph: Subject(GraphMsg)) -> List(Entity) {
+  process.call(graph, waiting: 5000, sending: fn(reply_to) {
+    ListEntities(reply_to: reply_to)
+  })
+}
+
+pub fn get_facts_by_entity(
+  graph: Subject(GraphMsg),
+  entity_id: String,
+) -> List(AtomicFact) {
+  process.call(graph, waiting: 5000, sending: fn(reply_to) {
+    GetFactsByEntity(entity_id: entity_id, reply_to: reply_to)
+  })
+}
+
 fn handle_message(
   state: GraphState,
   msg: GraphMsg,
@@ -114,6 +132,21 @@ fn handle_message(
     }
     FactCount(reply_to) -> {
       process.send(reply_to, ets.size(state.facts))
+      actor.continue(state)
+    }
+    ListEntities(reply_to) -> {
+      let entities =
+        ets.lookup_all(state.entities)
+        |> list.map(fn(dyn) { coerce(dyn) })
+      process.send(reply_to, entities)
+      actor.continue(state)
+    }
+    GetFactsByEntity(entity_id, reply_to) -> {
+      let facts =
+        ets.lookup_all(state.facts)
+        |> list.map(fn(dyn) -> AtomicFact { coerce(dyn) })
+        |> list.filter(fn(f) { f.subject == entity_id })
+      process.send(reply_to, facts)
       actor.continue(state)
     }
     Stop -> actor.stop()
