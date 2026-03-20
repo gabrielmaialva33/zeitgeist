@@ -1,4 +1,5 @@
 import gleam/erlang/process
+import gleam/option.{None}
 import gleeunit
 import gleeunit/should
 import zeitgeist/agent/agent.{AgentConfig}
@@ -28,6 +29,8 @@ pub fn clock_advances_ticks_test() {
       tier: Reactive,
       registry: reg,
       platform: plat,
+      graph: None,
+      llm_pool: None,
     )
   let assert Ok(_agent) = agent.start(config)
 

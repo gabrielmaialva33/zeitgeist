@@ -1,13 +1,18 @@
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process.{type Subject}
+import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import zeitgeist/agent/action.{
   type AgentActionType, DiplomaticMessage, FormAlliance, IssueSanction,
   MilitaryAction,
 }
 import zeitgeist/agent/decision
+import zeitgeist/agent/interview
 import zeitgeist/agent/memory.{type AgentMemory}
 import zeitgeist/agent/types.{type AgentKind, type AgentTier, type Personality}
+import zeitgeist/graph/store.{type GraphMsg}
+import zeitgeist/llm/pool.{type PoolMsg}
+import zeitgeist/swarm/kg_feedback
 import zeitgeist/swarm/platform.{type PlatformMsg}
 import zeitgeist/swarm/registry.{type RegistryMsg}
 
@@ -24,6 +29,8 @@ pub type AgentConfig {
     tier: AgentTier,
     registry: Subject(RegistryMsg),
     platform: Subject(PlatformMsg),
+    graph: Option(Subject(GraphMsg)),
+    llm_pool: Option(Subject(PoolMsg)),
   )
 }
 
@@ -34,6 +41,7 @@ pub type AgentConfig {
 pub type AgentMsg {
   Tick(tick: Int, simulated_hour: Int, world_tension: Float)
   GetHealth(reply_to: Subject(AgentHealth))
+  Interview(question: String, reply_to: Subject(String))
   AgentStop
 }
 
@@ -73,13 +81,14 @@ fn int_to_float(n: Int) -> Float
 @external(erlang, "zeitgeist_ets_ffi", "identity")
 fn coerce(a: a) -> b
 
+@external(erlang, "zeitgeist_ets_ffi", "now_ms")
+fn now_ms() -> Int
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-pub fn start(
-  config: AgentConfig,
-) -> Result(Subject(AgentMsg), actor.StartError) {
+pub fn start(config: AgentConfig) -> Result(Subject(AgentMsg), actor.StartError) {
   let init_state =
     AgentState(
       config: config,
@@ -117,12 +126,23 @@ pub fn tick(
   hour: Int,
   tension: Float,
 ) -> Nil {
-  process.send(agent, Tick(tick: tick_num, simulated_hour: hour, world_tension: tension))
+  process.send(
+    agent,
+    Tick(tick: tick_num, simulated_hour: hour, world_tension: tension),
+  )
 }
 
 pub fn get_health(agent: Subject(AgentMsg)) -> AgentHealth {
   process.call(agent, waiting: 5000, sending: fn(reply_to) {
     GetHealth(reply_to)
+  })
+}
+
+/// Ask an agent a question. Returns the LLM response or a fallback string.
+/// Timeout: 30 seconds.
+pub fn interview_agent(agent: Subject(AgentMsg), question: String) -> String {
+  process.call(agent, waiting: 30_000, sending: fn(reply_to) {
+    Interview(question: question, reply_to: reply_to)
   })
 }
 
@@ -158,6 +178,18 @@ fn handle_message(
               ctx,
             )
           execute_action(state.config, action, tick_num)
+          // KG feedback: record action to graph if configured
+          case state.config.graph {
+            Some(graph_subj) ->
+              kg_feedback.record_to_graph(
+                graph_subj,
+                state.config.id,
+                state.config.world_id,
+                action,
+                now_ms(),
+              )
+            None -> Nil
+          }
           let new_mem = memory.record_action(state.memory, tick_num, action)
           AgentState(
             ..state,
@@ -166,8 +198,7 @@ fn handle_message(
             actions_taken: state.actions_taken + 1,
           )
         }
-        False ->
-          AgentState(..state, ticks_processed: state.ticks_processed + 1)
+        False -> AgentState(..state, ticks_processed: state.ticks_processed + 1)
       }
       actor.continue(new_state)
     }
@@ -181,6 +212,35 @@ fn handle_message(
           sentiment: memory.sentiment(state.memory),
         )
       process.send(reply_to, health)
+      actor.continue(state)
+    }
+
+    Interview(question: q, reply_to: reply_to) -> {
+      let response = case state.config.llm_pool {
+        Some(pool) ->
+          case
+            interview.ask(
+              pool,
+              state.config.id,
+              state.config.kind,
+              state.config.personality,
+              state.memory,
+              q,
+            )
+          {
+            Ok(answer) -> answer
+            Error(e) -> "Interview error: " <> e
+          }
+        None ->
+          interview.build_prompt(
+            state.config.id,
+            state.config.kind,
+            state.config.personality,
+            state.memory,
+            q,
+          )
+      }
+      process.send(reply_to, response)
       actor.continue(state)
     }
 

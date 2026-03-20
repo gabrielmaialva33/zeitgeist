@@ -1,4 +1,5 @@
 import gleam/erlang/process
+import gleam/option.{None}
 import gleeunit
 import gleeunit/should
 import zeitgeist/agent/agent.{AgentConfig}
@@ -16,16 +17,17 @@ pub fn start_agent_test() {
   let assert Ok(reg) = registry.start("agent_test_reg1")
   let assert Ok(plat) = platform.start("agent_test_world1")
 
-  let personality = default_personality()
   let config =
     AgentConfig(
       id: "agent1",
       world_id: "agent_test_world1",
       kind: GovernmentAgent(country: "usa", role: HeadOfState, tier: Reactive),
-      personality: personality,
+      personality: default_personality(),
       tier: Reactive,
       registry: reg,
       platform: plat,
+      graph: None,
+      llm_pool: None,
     )
 
   let assert Ok(_agent) = agent.start(config)
@@ -44,7 +46,11 @@ pub fn tick_produces_action_test() {
 
   // Hawkish government agent — high tension will cause actions
   let personality =
-    types.Personality(..default_personality(), hawkishness: 0.9, extraversion: 0.9)
+    types.Personality(
+      ..default_personality(),
+      hawkishness: 0.9,
+      extraversion: 0.9,
+    )
   let config =
     AgentConfig(
       id: "hawk_agent",
@@ -54,6 +60,8 @@ pub fn tick_produces_action_test() {
       tier: Reactive,
       registry: reg,
       platform: plat,
+      graph: None,
+      llm_pool: None,
     )
 
   let assert Ok(a) = agent.start(config)

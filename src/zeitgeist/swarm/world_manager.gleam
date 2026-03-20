@@ -2,6 +2,7 @@ import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
 import gleam/int
 import gleam/list
+import gleam/option
 import gleam/otp/actor
 import zeitgeist/agent/agent.{AgentConfig}
 import zeitgeist/agent/types.{type AgentKind, type Personality, Reactive}
@@ -15,11 +16,7 @@ import zeitgeist/swarm/world_clock.{ClockConfig}
 // ---------------------------------------------------------------------------
 
 pub type AgentSpec {
-  AgentSpec(
-    id: String,
-    kind: AgentKind,
-    personality: Personality,
-  )
+  AgentSpec(id: String, kind: AgentKind, personality: Personality)
 }
 
 pub type WorldCreateConfig {
@@ -66,8 +63,7 @@ type ManagerState {
 pub fn start(
   reg: Subject(RegistryMsg),
 ) -> Result(Subject(ManagerMsg), actor.StartError) {
-  let init_state =
-    ManagerState(registry: reg, worlds: dict.new(), counter: 0)
+  let init_state = ManagerState(registry: reg, worlds: dict.new(), counter: 0)
   let r =
     actor.new(init_state)
     |> actor.on_message(handle_message)
@@ -139,6 +135,8 @@ fn handle_message(
                   tier: Reactive,
                   registry: state.registry,
                   platform: plat,
+                  graph: option.None,
+                  llm_pool: option.None,
                 )
               let _result = agent.start(agent_cfg)
               spec.id
